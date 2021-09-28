@@ -1,6 +1,7 @@
 // Shell.
 
 #include "kernel/types.h"
+#include "kernel/stat.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
 
@@ -133,7 +134,11 @@ runcmd(struct cmd *cmd)
 int
 getcmd(char *buf, int nbuf)
 {
-  fprintf(2, "$ ");
+  struct stat st;
+  fstat(0, &st);
+  if(st.type != T_FILE){
+    fprintf(2, "$ ");
+  }
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
   if(buf[0] == 0) // EOF
@@ -308,12 +313,12 @@ gettoken(char **ps, char *es, char **q, char **eq)
 }
 
 int
-peek(char **ps, char *es, char *toks)
+peek(char **ps, char *es, char *toks) //修改传进的*ps指针至 除whitespace里字符的位置
 {
   char *s;
 
   s = *ps;
-  while(s < es && strchr(whitespace, *s))
+  while(s < es && strchr(whitespace, *s)) //检查有没有s当前指向的字符是不是属于whitespace // echo 
     s++;
   *ps = s;
   return *s && strchr(toks, *s);
