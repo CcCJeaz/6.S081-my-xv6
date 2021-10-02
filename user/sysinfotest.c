@@ -26,7 +26,7 @@ countfree()
     if((uint64)sbrk(PGSIZE) == 0xffffffffffffffff){
       break;
     }
-    n += PGSIZE;
+    n += PGSIZE;//每次申请512个地址空间, 4096byte
   }
   sinfo(&info);
   if (info.freemem != 0) {

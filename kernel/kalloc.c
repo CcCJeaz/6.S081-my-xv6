@@ -52,7 +52,7 @@ kfree(void *pa)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  memset(pa, 1, PGSIZE);//释放字节4096个 每个标记为1
 
   r = (struct run*)pa;
 
@@ -77,6 +77,20 @@ kalloc(void)
   release(&kmem.lock);
 
   if(r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
+    memset((char*)r, 5, PGSIZE); // fill with junk 设置4096个字节, 每个字节标记为5
   return (void*)r;
+}
+
+uint64
+kfreesize(void){
+  uint64 size = 0;
+  struct run *current;
+  acquire(&kmem.lock);
+  current = kmem.freelist;
+  release(&kmem.lock);
+  while(current){
+    current = current->next;
+    size ++;
+  }
+  return size * PGSIZE;
 }
