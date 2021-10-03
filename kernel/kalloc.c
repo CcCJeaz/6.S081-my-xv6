@@ -66,7 +66,7 @@ kfree(void *pa)
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
 void *
-kalloc(void)
+kalloc(void) //分一页物理地址空间, freelist向前移动, 并设置该地址上每个字节的值为5
 {
   struct run *r;
 

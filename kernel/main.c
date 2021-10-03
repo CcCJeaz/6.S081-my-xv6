@@ -19,7 +19,7 @@ main()
     printf("\n");
     printf("xv6 kernel is booting\n");
     printf("\n");
-    kinit();         // physical page allocator
+    kinit();         // physical page allocator // 初始化freelist锁, 以及初始化 free memery 的物理空间
     kvminit();       // create kernel page table
     kvminithart();   // turn on paging
     procinit();      // process table

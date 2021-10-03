@@ -11,7 +11,7 @@
  */
 pagetable_t kernel_pagetable;
 
-extern char etext[];  // kernel.ld sets this to end of kernel code.
+extern char etext[];  // kernel.ld sets this to end of kernel code. //kernel data开始地址
 
 extern char trampoline[]; // trampoline.S
 
@@ -36,10 +36,10 @@ kvminit()
   // PLIC
   kvmmap(PLIC, PLIC, 0x400000, PTE_R | PTE_W);
 
-  // map kernel text executable and read-only.
+  // map kernel text executable and read-only. 映射kernel代码段
   kvmmap(KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
 
-  // map kernel data and the physical RAM we'll make use of.
+  // map kernel data and the physical RAM we'll make use of. 映射data区和free memery区
   kvmmap((uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
 
   // map the trampoline for trap entry/exit to
@@ -69,17 +69,17 @@ kvminithart()
 //   12..20 -- 9 bits of level-0 index.
 //    0..11 -- 12 bits of byte offset within the page.
 pte_t *
-walk(pagetable_t pagetable, uint64 va, int alloc)
+walk(pagetable_t pagetable, uint64 va, int alloc) //返回虚拟地址对应最低级page table的pte, 不是虚拟地址的物理地址
 {
   if(va >= MAXVA)
     panic("walk");
 
   for(int level = 2; level > 0; level--) {
-    pte_t *pte = &pagetable[PX(level, va)];
+    pte_t *pte = &pagetable[PX(level, va)]; //读取va的index其中9位 然后直接索引获得下一个页表的pte
     if(*pte & PTE_V) {
-      pagetable = (pagetable_t)PTE2PA(*pte);
+      pagetable = (pagetable_t)PTE2PA(*pte);//用得到的pte获取下一个page table物理地址
     } else {
-      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)//如果page table不存在创建一个
         return 0;
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
@@ -438,5 +438,35 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return 0;
   } else {
     return -1;
+  }
+}
+
+
+void pteprint(pagetable_t pagetable, int index, int level){
+  uint64 pte = pagetable[index];
+  uint64 pa = PTE2PA(pte);
+
+  if(level > 3)
+    return;
+  if((pte & PTE_V) == 0)
+    return;
+  
+  for(int i=0; i<level; i++) {
+    printf("..");
+    if(i != level-1)
+      printf(" ");
+  }
+  printf("%d: pte %p pa %p\n", index, pte, pa);
+
+  for(int i=0; i<512; i++) {
+      pteprint((pagetable_t) pa, i, level+1);
+  }
+  return;
+}
+
+void vmprint(pagetable_t pagetable) {
+  printf("page table %p\n", pagetable);
+  for(int i=0; i<512; i++) {
+      pteprint(pagetable, i, 1);
   }
 }
