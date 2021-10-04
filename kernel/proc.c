@@ -30,19 +30,23 @@ procinit(void)
   initlock(&pid_lock, "nextpid");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
-
-      // Allocate a page for the process's kernel stack.
-      // Map it high in memory, followed by an invalid
-      // guard page.
-      char *pa = kalloc();
-      if(pa == 0)
-        panic("kalloc");
-      uint64 va = KSTACK((int) (p - proc));
-      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
-      p->kstack = va;
   }
-  kvminithart();
 }
+
+// 分配进程内核栈
+void
+procstackinit(struct proc *p)
+{
+  char *pa = kalloc();
+  if(pa == 0)
+    panic("kalloc");
+  uint64 va = KSTACK((int) (p - proc));
+  pkg_vmmap(p->kernel_pagetable, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+  p->kstack = va;
+
+  // kvminithart();
+}
+
 
 // Must be called with interrupts disabled,
 // to prevent race with process being moved
@@ -105,6 +109,9 @@ allocproc(void)
   return 0;
 
 found:
+  p->kernel_pagetable = prockernelpagetable_init();
+  procstackinit(p);
+
   p->pid = allocpid();
 
   // Allocate a trapframe page.
@@ -136,6 +143,8 @@ found:
 static void
 freeproc(struct proc *p)
 {
+  if(p->kernel_pagetable)
+    prockernelpagetable_free(p->kernel_pagetable, p->kstack);
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -473,11 +482,17 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+        w_satp(MAKE_SATP(p->kernel_pagetable));
+        sfence_vma();
+
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
+
+        kvminithart();
 
         found = 1;
       }

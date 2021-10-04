@@ -5,7 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
-
+#include "spinlock.h"
+#include "proc.h"
 /*
  * the kernel's page table.
  */
@@ -47,6 +48,74 @@ kvminit()
   kvmmap(TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
 }
 
+//proc_kernel_pagetable_map
+void
+pkg_vmmap(pagetable_t pagetable, uint64 va, uint64 pa, uint64 sz, int perm)
+{
+  if(mappages(pagetable, va, sz, pa, perm) != 0)
+    panic("pkg_vmmap");
+}
+
+//proc_kernel_pagetable
+pagetable_t
+prockernelpagetable_init()
+{
+  pagetable_t proc_kernel_pagetable = (pagetable_t) kalloc();
+  memset(proc_kernel_pagetable, 0, PGSIZE);
+
+  // uart registers
+  pkg_vmmap(proc_kernel_pagetable, UART0, UART0, PGSIZE, PTE_R | PTE_W);
+
+  // virtio mmio disk interface
+  pkg_vmmap(proc_kernel_pagetable, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
+
+  // CLINT
+  pkg_vmmap(proc_kernel_pagetable, CLINT, CLINT, 0x10000, PTE_R | PTE_W);
+
+  // PLIC
+  pkg_vmmap(proc_kernel_pagetable, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+
+  // map kernel text executable and read-only.
+  pkg_vmmap(proc_kernel_pagetable, KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
+
+  // map kernel data and the physical RAM we'll make use of.
+  pkg_vmmap(proc_kernel_pagetable, (uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
+
+  // map the trampoline for trap entry/exit to
+  // the highest virtual address in the kernel.
+  pkg_vmmap(proc_kernel_pagetable, TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
+
+  return proc_kernel_pagetable;
+}
+
+
+void
+my_freewalk(pagetable_t pagetable, int level)
+{
+  for(int i=0; i<512; i++) {
+    uint64 pte = pagetable[i];
+    uint64 pa  = PTE2PA(pte);
+    if(level < 3 && (pte & PTE_V) != 0)
+      my_freewalk((pagetable_t) pa, level+1);
+  }
+  kfree((void*)pagetable);
+}
+
+void
+prockernelpagetable_free(pagetable_t pagetable, uint64 stack) {
+  uint64 pa = kvmpa(pagetable, stack);
+  kfree((void *)pa);
+  
+  uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+  uvmunmap(pagetable, UART0, 1, 0);
+  uvmunmap(pagetable, VIRTIO0, 1, 0);
+  uvmunmap(pagetable, CLINT, 16, 0);
+  uvmunmap(pagetable, PLIC, 1024, 0);
+  uvmunmap(pagetable, KERNBASE, ((uint64)etext-KERNBASE)/PGSIZE, 0);
+  uvmunmap(pagetable, (uint64)etext, (PHYSTOP-(uint64)etext)/PGSIZE, 0);
+
+  my_freewalk(pagetable, 1);
+}
 // Switch h/w page table register to the kernel's page table,
 // and enable paging.
 void
@@ -126,13 +195,13 @@ kvmmap(uint64 va, uint64 pa, uint64 sz, int perm)
 // addresses on the stack.
 // assumes va is page aligned.
 uint64
-kvmpa(uint64 va)
+kvmpa(pagetable_t pagetable, uint64 va)
 {
   uint64 off = va % PGSIZE;
   pte_t *pte;
   uint64 pa;
   
-  pte = walk(kernel_pagetable, va, 0);
+  pte = walk(pagetable, va, 0);
   if(pte == 0)
     panic("kvmpa");
   if((*pte & PTE_V) == 0)

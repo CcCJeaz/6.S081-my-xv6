@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "memlayout.h": "c",
-        "riscv.h": "c"
+        "riscv.h": "c",
+        "proc.h": "c"
     }
 }
