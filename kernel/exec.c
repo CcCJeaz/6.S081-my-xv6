@@ -51,6 +51,8 @@ exec(char *path, char **argv)
     uint64 sz1;
     if((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz)) == 0)
       goto bad;
+    if(sz1 >= PLIC)
+      goto bad;
     sz = sz1;
     if(ph.vaddr % PGSIZE != 0)
       goto bad;
@@ -114,11 +116,13 @@ exec(char *path, char **argv)
   p->sz = sz;
   p->trapframe->epc = elf.entry;  // initial program counter = main
   p->trapframe->sp = sp; // initial stack pointer
+  uvmunmap(p->kernel_pagetable, 0, PGROUNDUP(oldsz)/PGSIZE, 0);
+  kvmcopyuser(p->pagetable, p->kernel_pagetable, p->sz);
   proc_freepagetable(oldpagetable, oldsz);
   
   if(p->pid==1)
     vmprint(p->pagetable);
-
+  
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:

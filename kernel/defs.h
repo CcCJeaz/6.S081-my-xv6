@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct stats;
 #ifdef LAB_NET
 struct mbuf;
 struct sock;
@@ -108,7 +109,7 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
-
+int             growkproc(int n, uint64);
 // swtch.S
 void            swtch(struct context*, struct context*);
 
@@ -167,6 +168,13 @@ pagetable_t     uvmcreate(void);
 void            uvminit(pagetable_t, uchar *, uint);
 uint64          uvmalloc(pagetable_t, uint64, uint64);
 uint64          uvmdealloc(pagetable_t, uint64, uint64);
+int             kvmcopyuser(pagetable_t old, pagetable_t new, uint64 sz);
+uint64          kvmalloc(pagetable_t pagetable, pagetable_t userpagetable, uint64 oldsz, uint64 newsz);
+uint64          kvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz);
+
+int             copyin_new(pagetable_t, char*, uint64, uint64);
+int             copyinstr_new(pagetable_t, char*, uint64, uint64);
+
 #ifdef SOL_COW
 #else
 int             uvmcopy(pagetable_t, pagetable_t, uint64);
