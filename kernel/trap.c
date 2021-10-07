@@ -76,6 +76,49 @@ usertrap(void)
   if(p->killed)
     exit(-1);
 
+  if(which_dev == 2 && 
+    p->alarminfo.ticks != 0 &&
+    p->done &&
+    ++(p->alarminfo.time) % p->alarminfo.ticks == 0) {
+    
+    //save state
+    p->revert->a0 = p->trapframe->a0;
+    p->revert->a1 = p->trapframe->a1;
+    p->revert->a2 = p->trapframe->a2;
+    p->revert->a3 = p->trapframe->a3;
+    p->revert->a4 = p->trapframe->a4;
+    p->revert->a5 = p->trapframe->a5;
+    p->revert->a6 = p->trapframe->a6;
+    p->revert->a7 = p->trapframe->a7;
+    p->revert->epc= p->trapframe->epc;
+    p->revert->gp = p->trapframe->gp;
+    p->revert->ra = p->trapframe->ra;
+    p->revert->s0 = p->trapframe->s0;
+    p->revert->s1 = p->trapframe->s1;
+    p->revert->s2 = p->trapframe->s2;
+    p->revert->s3 = p->trapframe->s3;
+    p->revert->s4 = p->trapframe->s4;
+    p->revert->s5 = p->trapframe->s5;
+    p->revert->s6 = p->trapframe->s6;
+    p->revert->s7 = p->trapframe->s7;
+    p->revert->s8 = p->trapframe->s8;
+    p->revert->s9 = p->trapframe->s9;
+    p->revert->s10= p->trapframe->s10;
+    p->revert->s11= p->trapframe->s11;
+    p->revert->sp = p->trapframe->sp;
+    p->revert->tp = p->trapframe->tp;
+    p->revert->t0 = p->trapframe->t0;
+    p->revert->t1 = p->trapframe->t1;
+    p->revert->t2 = p->trapframe->t2;
+    p->revert->t3 = p->trapframe->t3;
+    p->revert->t4 = p->trapframe->t4;
+    p->revert->t5 = p->trapframe->t5;
+    p->revert->t6 = p->trapframe->t6;
+
+    p->alarminfo.time = 0;
+    p->trapframe->epc = (uint64)p->alarminfo.handle;
+    p->done = 0;
+  }
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
     yield();
