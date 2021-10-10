@@ -69,16 +69,20 @@ usertrap(void)
     // ok
   } else if(r_scause() == 15 || r_scause()==13) {
     uint64 stval = r_stval();
-    if(p->sz > stval && stval < PLIC) {
-      char *mem = kalloc();
-      if(mem == 0){
-        p->killed = 1;
-      }
-      memset(mem, 0, PGSIZE);
-      if (mappages(p->pagetable, PGROUNDDOWN(stval), PGSIZE, (uint64) mem, PTE_U|PTE_X|PTE_W|PTE_R) != 0){
-        p->killed = 1;
-      }
-    } else {
+    
+    if(stval > p->sz || stval <= p->trapframe->sp || stval > TRAPFRAME){
+      p->killed = 1;
+      goto killed;
+    }
+    
+    char *mem = kalloc();
+    if(mem == 0){
+      p->killed = 1;
+      goto killed;
+    }
+    memset(mem, 0, PGSIZE);
+    if (mappages(p->pagetable, PGROUNDDOWN(stval), PGSIZE, (uint64) mem, PTE_U|PTE_X|PTE_W|PTE_R|PTE_V) != 0){
+      kfree(mem);
       p->killed = 1;
     }
   } else {
@@ -86,7 +90,7 @@ usertrap(void)
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
-
+killed:
   if(p->killed)
     exit(-1);
 

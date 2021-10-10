@@ -121,6 +121,8 @@ panic(char *s)
   printf("panic: ");
   printf(s);
   printf("\n");
+  printf("panic: unexpected scause %p pid=%d\n", r_scause(), myproc()->pid);
+  printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
   panicked = 1; // freeze uart output from other CPUs
   for(;;)
     ;

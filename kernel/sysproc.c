@@ -47,6 +47,11 @@ sys_sbrk(void)
 
   if(argint(0, &n) < 0)
     return -1;
+  char *mem = kalloc();
+  if(mem == 0)
+    return -1;
+  else
+    kfree(mem);
   addr = p->sz;
   if(n < 0) {
     uvmdealloc(p->pagetable, p->sz, p->sz + n);
