@@ -8,6 +8,12 @@
 #define NBUCKET 5
 #define NKEYS 100000
 
+pthread_mutex_t lock;            // declare a lock
+// pthread_mutex_init(&lock, NULL); // initialize the lock
+// pthread_mutex_lock(&lock);       // acquire lock
+// pthread_mutex_unlock(&lock);     // release lock
+
+pthread_mutex_t bucket_lock[5];
 struct entry {
   int key;
   int value;
@@ -51,7 +57,9 @@ void put(int key, int value)
     e->value = value;
   } else {
     // the new is new.
+    pthread_mutex_lock(&bucket_lock[i]);
     insert(key, value, &table[i], table[i]);
+    pthread_mutex_unlock(&bucket_lock[i]);
   }
 }
 
@@ -102,6 +110,10 @@ main(int argc, char *argv[])
   pthread_t *tha;
   void *value;
   double t1, t0;
+  
+  for(int i=0; i<NBUCKET; i++) {
+    pthread_mutex_init(&bucket_lock[i], NULL);
+  }
 
   if (argc < 2) {
     fprintf(stderr, "Usage: %s nthreads\n", argv[0]);
