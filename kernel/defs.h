@@ -185,3 +185,7 @@ void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+
+
+int uvmcopy_map(struct proc *p, struct proc *np);

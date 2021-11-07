@@ -5,6 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
+
 
 struct spinlock tickslock;
 uint ticks;
@@ -33,6 +35,7 @@ trapinithart(void)
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
 //
+pte_t *walk(pagetable_t pagetable, uint64 va, int alloc);
 void
 usertrap(void)
 {
@@ -65,6 +68,65 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if(r_scause() == 13 || r_scause() == 15) {
+    uint64 va = PGROUNDDOWN(r_stval());
+    // printf("trap %p \n", va);
+    if(va > TRAPFRAME || va < p->sz) {
+      p->killed = 1;
+      goto out;
+    }
+    
+    int idx;
+    for(idx = 0; idx < 16; idx++) {
+      if(p->vma_list[idx].addr <= va &&
+         p->vma_list[idx].addr + p->vma_list[idx].len > va &&
+         p->vma_list[idx].len != 0)
+        break;
+    }
+    if(idx == 16) {
+      p->killed = 1;
+      goto out;
+    }
+    
+    if(p->vma_list[idx].flag & MAP_SHARED){
+      if(r_scause() == 13 && !(p->vma_list[idx].prot & PROT_READ)) {
+        p->killed = 1;
+        goto out;
+      }else if(r_scause() == 15 && !(p->vma_list[idx].prot & PROT_WRITE)) {
+        p->killed = 1;
+        goto out;
+      }
+    }
+    // printf("3\n");
+    uint64 *vm = (uint64*)kalloc();
+    if(vm == 0) {
+      p->killed = 1;
+      goto out;
+    }
+
+    memset(vm, 0, PGSIZE);
+
+    int perm = 0;
+    if(p->vma_list[idx].prot & PROT_READ) {
+      perm |= PTE_R;
+    }
+    if(p->vma_list[idx].prot & PROT_WRITE) {
+      perm |= PTE_W;
+    }
+    if(p->vma_list[idx].prot & PROT_EXEC) {
+      perm |= PTE_X;
+    }
+    perm |= PTE_U ;
+    
+    if (mappages(p->pagetable, va, PGSIZE, (uint64)vm, perm) != 0) {
+      p->killed = 1;
+      goto out;
+    }
+    
+    ilock(p->vma_list[idx].ip);
+    readi(p->vma_list[idx].ip, 1, PGROUNDDOWN(va), PGROUNDDOWN(va) - p->vma_list[idx].addr, PGSIZE);
+    iunlock(p->vma_list[idx].ip);
+
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
@@ -72,7 +134,7 @@ usertrap(void)
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
-
+out:
   if(p->killed)
     exit(-1);
 

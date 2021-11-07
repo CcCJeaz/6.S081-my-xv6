@@ -6,6 +6,10 @@
 #include "defs.h"
 #include "fs.h"
 
+#include "spinlock.h"
+#include "sleeplock.h"
+#include "file.h"
+#include "proc.h"
 /*
  * the kernel's page table.
  */
@@ -322,6 +326,19 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
  err:
   uvmunmap(new, 0, i / PGSIZE, 1);
   return -1;
+}
+
+int
+uvmcopy_map(struct proc *p, struct proc *np)
+{
+
+  memmove(np->vma_list, p->vma_list, sizeof(p->vma_list));
+  for(int i=0; i<16; i++) {
+    if(p->vma_list[i].len != 0)
+      filedup(p->vma_list[i].f);
+  }
+  return 0;
+
 }
 
 // mark a PTE invalid for user access.

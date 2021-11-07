@@ -134,15 +134,24 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  for(int i=0; i<16; i++) {
+    p->vma_list[i].len = 0;
+    p->vma_list[i].ip = 0;
+  }
+  p->top = TRAPFRAME;
   return p;
 }
 
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
+extern int my_munmap(uint64 addr, int len);
 static void
 freeproc(struct proc *p)
 {
+  for (int i = 0; i < 16; i++)
+    if(p->vma_list[i].len!=0)
+      my_munmap(p->vma_list[i].addr, p->vma_list[i].len);
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
@@ -273,7 +282,7 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
-
+  uvmcopy_map(p, np);
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
@@ -336,6 +345,7 @@ reparent(struct proc *p)
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait().
+
 void
 exit(int status)
 {
@@ -343,6 +353,10 @@ exit(int status)
 
   if(p == initproc)
     panic("init exiting");
+
+  for (int i = 0; i < 16; i++)
+    if(p->vma_list[i].len!=0)
+      my_munmap(p->vma_list[i].addr, p->vma_list[i].len);
 
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
