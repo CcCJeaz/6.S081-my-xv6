@@ -39,6 +39,8 @@ lab通关时间: 2021.9.10 ~ 2021.11.8
   * trapframe, trampoline
 * 虚拟内存
   * 页表机制
+    * va的结构, page table的模型, pte的结构, 物理内存的内存结构包括分块以及pa的查找
+    * 有关虚拟内存的硬件: MMU(内存控制单元), TLB(Translation lookaside buffer, 缓存一些内存计算)
   * 应用: lazy, mmap, copy on write, demand paging(改exec)
   * 内存分配, 释放, 映射
 * 进程的生命周期
@@ -50,8 +52,9 @@ lab通关时间: 2021.9.10 ~ 2021.11.8
   * 进程之间的通信(buffer, 生产者-消费者)
 * 锁
   * 常见的并发问题: 竞态(race condition), 死锁, 无法醒来的进程(lose wake)
-  * 锁的种类: 自旋(互斥)锁, 信号量, 睡眠锁(拿到被其他进程持有的锁进入睡眠), 屏障(barrier)
-  * 问题的解决: 按规定顺序获得锁, 
+  * 锁的种类: 自旋(互斥)锁, 信号量(主动睡眠等待唤醒), 睡眠锁(尝试获取被其他进程持有的锁进入睡眠), 屏障(barrier)
+  * 锁的设计, 具体实现(获取锁时发生了什么, 释放锁时会发生什么样的场景)
+  * 关于死锁的常见场景和产生条件 以及 打破他们的方法
 * 文件系统
   * 磁盘的基本概念: sector(512), block(1024), inode(64)
   * 磁盘上的模型(boot, super block,log, inode, bitmap, data block)
